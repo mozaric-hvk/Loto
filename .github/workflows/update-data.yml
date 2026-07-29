@@ -1,0 +1,25 @@
+name: Mise à jour automatique des tirages Loto
+
+on:
+  schedule:
+    # S'exécute automatiquement du lundi au samedi à 22h30 UTC
+    - cron: '30 22 * * 1,3,6'
+  workflow_dispatch: # Permet de lancer la mise à jour manuellement si besoin
+
+jobs:
+  update-csv:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code du dépôt
+        uses: actions/checkout@v3
+
+      - name: Télécharger le dernier CSV officiel
+        run: |
+          curl -s -L "https://api.allorigins.win/raw?url=https://www.statistiques-loto.fr/csv/loto_201911.csv" -o loto.csv
+
+      - name: Sauvegarder les modifications
+        run: |
+          git config --global user.name 'GitHub Action Bot'
+          git config --global user.email 'action@github.com'
+          git add loto.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Mise à jour auto du fichier loto.csv" && git push)
