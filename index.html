@@ -52,11 +52,16 @@
         <div class="ball-grid" id="chance-grid"></div>
     </div>
 
-    <script>
-        const csvUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.statistiques-loto.fr/csv/loto_201911.csv");
+     <script>
+        // Utilisation de corsproxy.io au lieu de allorigins
+        const rawCsvUrl = "https://www.statistiques-loto.fr/csv/loto_201911.csv";
+        const csvUrl = "https://corsproxy.io/?" + encodeURIComponent(rawCsvUrl);
 
         fetch(csvUrl)
-            .then(res => res.text())
+            .then(res => {
+                if (!res.ok) throw new Error("Erreur réseau");
+                return res.text();
+            })
             .then(text => {
                 const lines = text.split('\n');
                 const draws = [];
@@ -68,9 +73,12 @@
                     }
                 }
                 if (draws.length > 0) renderStats(draws);
-                else document.getElementById('status').innerText = "⚠️ Erreur de lecture des données.";
+                else document.getElementById('status').innerText = "⚠️ Erreur de formatage du CSV.";
             })
-            .catch(() => document.getElementById('status').innerText = "⚠️ Impossible de charger les données.");
+            .catch(err => {
+                console.error(err);
+                document.getElementById('status').innerText = "⚠️ Impossible de charger les données.";
+            });
 
         function renderBall(num, count, ecart, type='') {
             return `<div class="ball-item"><div class="ball-num ${type}">${num}</div><div class="ball-stat">${count} sort.</div><div class="ball-stat">Écart: ${ecart}</div></div>`;
