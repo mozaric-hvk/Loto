@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Loto Stats Auto</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --hot-color: #f97316;
+            --cold-color: #10b981;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; padding-bottom: 40px; }
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { font-size: 1.4rem; color: var(--accent); }
+        .card { background: var(--card-bg); border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+        .card-title { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+        .ball-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; }
+        .ball-item { background: #0f172a; border-radius: 12px; padding: 10px 6px; text-align: center; border: 1px solid #334155; }
+        .ball-num { display: inline-block; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; background: var(--accent); color: #0f172a; font-weight: 800; font-size: 0.95rem; margin-bottom: 4px; }
+        .ball-num.hot { background: var(--hot-color); color: #fff; }
+        .ball-num.cold { background: var(--cold-color); color: #fff; }
+        .ball-num.chance { background: #eab308; color: #0f172a; }
+        .ball-stat { font-size: 0.7rem; color: var(--text-muted); }
+        #status { text-align: center; color: var(--accent); font-size: 0.85rem; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎰 Loto Stats (Mise à jour Auto)</h1>
+    </header>
+
+    <div id="status">⏳ Chargement des tirages FDJ...</div>
+
+    <div class="card">
+        <div class="card-title">🔥 Top 5 Chauds</div>
+        <div class="ball-grid" id="top5-grid"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">❄️ Top 5 En Retard</div>
+        <div class="ball-grid" id="flop5-grid"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">⭐ Numéros Chance (Top 5)</div>
+        <div class="ball-grid" id="chance-grid"></div>
+    </div>
+
+    <script>
+        const csvUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.statistiques-loto.fr/csv/loto_201911.csv");
+
+        fetch(csvUrl)
+            .then(res => res.text())
+            .then(text => {
+                const lines = text.split('\n');
+                const draws = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(';');
+                    if (cols.length >= 10) {
+                        const b1 = parseInt(cols[4]), b2 = parseInt(cols[5]), b3 = parseInt(cols[6]), b4 = parseInt(cols[7]), b5 = parseInt(cols[8]), chance = parseInt(cols[9]);
+                        if (!isNaN(b1) && !isNaN(chance)) draws.push({ b1, b2, b3, b4, b5, chance });
+                    }
+                }
+                if (draws.length > 0) renderStats(draws);
+                else document.getElementById('status').innerText = "⚠️ Erreur de lecture des données.";
+            })
+            .catch(() => document.getElementById('status').innerText = "⚠️ Impossible de charger les données.");
+
+        function renderBall(num, count, ecart, type='') {
+            return `<div class="ball-item"><div class="ball-num ${type}">${num}</div><div class="ball-stat">${count} sort.</div><div class="ball-stat">Écart: ${ecart}</div></div>`;
+        }
+
+        function renderStats(draws) {
+            const mainStats = Array.from({length: 49}, (_, i) => {
+                const num = i + 1;
+                const count = draws.filter(d => [d.b1, d.b2, d.b3, d.b4, d.b5].includes(num)).length;
+                let ecart = 0;
+                for (let idx = 0; idx < draws.length; idx++) {
+                    if ([draws[idx].b1, draws[idx].b2, draws[idx].b3, draws[idx].b4, draws[idx].b5].includes(num)) { ecart = idx; break; }
+                }
+                return { num, count, ecart };
+            });
+
+            const chanceStats = Array.from({length: 10}, (_, i) => {
+                const num = i + 1;
+                const count = draws.filter(d => d.chance === num).length;
+                let ecart = 0;
+                for (let idx = 0; idx < draws.length; idx++) {
+                    if (draws[idx].chance === num) { ecart = idx; break; }
+                }
+                return { num, count, ecart };
+            });
+
+            const sorted = [...mainStats].sort((a,b) => b.count - a.count || a.ecart - b.ecart);
+            const top5 = sorted.slice(0, 5);
+            const flop5 = [...mainStats].sort((a,b) => a.count - b.count || b.ecart - a.ecart).slice(0, 5);
+            const topChance = [...chanceStats].sort((a,b) => b.count - a.count).slice(0, 5);
+
+            document.getElementById('top5-grid').innerHTML = top5.map(s => renderBall(s.num, s.count, s.ecart, 'hot')).join('');
+            document.getElementById('flop5-grid').innerHTML = flop5.map(s => renderBall(s.num, s.count, s.ecart, 'cold')).join('');
+            document.getElementById('chance-grid').innerHTML = topChance.map(s => renderBall(s.num, s.count, s.ecart, 'chance')).join('');
+            document.getElementById('status').innerText = "✅ Statistiques à jour (" + draws.length + " tirages analysés)";
+        }
+    </script>
+</body>
+</html>
