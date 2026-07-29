@@ -52,14 +52,11 @@
         <div class="ball-grid" id="chance-grid"></div>
     </div>
 
-     <script>
-        // Utilisation de corsproxy.io au lieu de allorigins
-        const rawCsvUrl = "https://www.statistiques-loto.fr/csv/loto_201911.csv";
-        const csvUrl = "https://corsproxy.io/?" + encodeURIComponent(rawCsvUrl);
-
-        fetch(csvUrl)
+    <script>
+        // Lecture directe du fichier loto.csv hébergé sur le même serveur
+        fetch('./loto.csv')
             .then(res => {
-                if (!res.ok) throw new Error("Erreur réseau");
+                if (!res.ok) throw new Error("Fichier introuvable");
                 return res.text();
             })
             .then(text => {
@@ -73,11 +70,11 @@
                     }
                 }
                 if (draws.length > 0) renderStats(draws);
-                else document.getElementById('status').innerText = "⚠️ Erreur de formatage du CSV.";
+                else document.getElementById('status').innerText = "⚠️ Format du fichier loto.csv incorrect.";
             })
             .catch(err => {
                 console.error(err);
-                document.getElementById('status').innerText = "⚠️ Impossible de charger les données.";
+                document.getElementById('status').innerText = "⚠️ Fichier loto.csv non trouvé sur le dépôt GitHub.";
             });
 
         function renderBall(num, count, ecart, type='') {
@@ -116,5 +113,6 @@
             document.getElementById('status').innerText = "✅ Statistiques à jour (" + draws.length + " tirages analysés)";
         }
     </script>
+
 </body>
 </html>
