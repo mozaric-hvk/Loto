@@ -21,6 +21,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; max-width: 500px; margin: 0 auto; padding-bottom: 40px; }
 
+        header { text-align: center; margin-bottom: 16px; }
+        h1 { font-size: 1.3rem; font-weight: 800; color: var(--blue-ball); display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
         /* Navigation Tabs */
         .nav-bar {
             display: grid;
@@ -46,20 +50,21 @@
             justify-content: center;
             gap: 4px;
             cursor: pointer;
+            transition: all 0.2s;
         }
         .nav-item.active {
             background: var(--card-bg);
             color: #fff;
             border: 1px solid var(--border-color);
-        }
-        .nav-item.flash-btn {
-            background: #1e2c4a;
-            color: var(--blue-ball);
-            border: 1px solid #2d426a;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
 
         /* Status */
         #status { text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 16px; }
+
+        /* General Tab Display */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
         /* Cards */
         .card {
@@ -79,7 +84,61 @@
             gap: 8px;
         }
 
-        /* Balls Display */
+        /* Grids for Stats */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .stat-card {
+            background: #0f192d;
+            border-radius: 12px;
+            padding: 10px 4px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ball {
+            width: 38px;
+            height: 38px;
+            line-height: 38px;
+            border-radius: 50%;
+            text-align: center;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #ffffff;
+            box-shadow: inset -2px -2px 6px rgba(0,0,0,0.3), 0 3px 6px rgba(0,0,0,0.3);
+        }
+        .ball.hot { background: var(--hot-color); }
+        .ball.cold { background: var(--cold-color); }
+        .ball.blue { background: var(--blue-ball); color: #0d1527; }
+        .ball.chance { background: var(--chance-color); color: #0d1527; }
+
+        .stat-label {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            line-height: 1.2;
+        }
+
+        /* Reminder Box */
+        .reminder {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 12px;
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        /* Row Flash Balls */
         .balls-row {
             display: flex;
             justify-content: center;
@@ -87,21 +146,12 @@
             gap: 8px;
             margin-top: 8px;
         }
-        .ball {
+        .balls-row .ball {
             width: 44px;
             height: 44px;
             line-height: 44px;
-            border-radius: 50%;
-            text-align: center;
-            font-weight: 800;
             font-size: 1.15rem;
-            color: #ffffff;
-            box-shadow: inset -2px -2px 6px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.3);
         }
-        .ball.hot { background: var(--hot-color); }
-        .ball.cold { background: var(--cold-color); }
-        .ball.mix { background: var(--blue-ball); color: #0d1527; }
-        .ball.chance { background: var(--chance-color); color: #0d1527; }
 
         /* Button Generator */
         .btn-generate {
@@ -116,28 +166,32 @@
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
             margin-bottom: 18px;
-            transition: transform 0.1s active;
         }
         .btn-generate:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
 
-    <!-- Barre de Nav -->
+    <header>
+        <h1>🎰 Loto Stats 6M</h1>
+        <div class="subtitle" id="draws-count">Analyse des tirages...</div>
+    </header>
+
+    <!-- Navigation -->
     <div class="nav-bar">
-        <button class="nav-item">
+        <button class="nav-item active" onclick="switchTab('topflop', this)">
             <span>🔥</span>
             <span>Top/Flop</span>
         </button>
-        <button class="nav-item">
+        <button class="nav-item" onclick="switchTab('tous', this)">
             <span>🔢</span>
             <span>Tous (1-49)</span>
         </button>
-        <button class="nav-item">
+        <button class="nav-item" onclick="switchTab('chance', this)">
             <span>⭐</span>
             <span>Chance</span>
         </button>
-        <button class="nav-item flash-btn active">
+        <button class="nav-item" onclick="switchTab('flash', this)">
             <span>🎲</span>
             <span>Flash</span>
         </button>
@@ -145,31 +199,59 @@
 
     <div id="status">⏳ Chargement des données...</div>
 
-    <!-- Container Flash / Générateur -->
-    <div id="flash-container">
-        <!-- Card 1 : Option Chauds -->
+    <!-- Onglet 1 : Top/Flop -->
+    <div id="tab-topflop" class="tab-content active">
+        <div class="card">
+            <div class="card-title">🔥 Top 5 Chauds (6 mois)</div>
+            <div class="stat-grid" id="top5-grid"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">❄️ Top 5 Froids / En Retard</div>
+            <div class="stat-grid" id="flop5-grid"></div>
+        </div>
+
+        <div class="reminder">
+            ⚠️ <span>Rappel : Chaque tirage est indépendant. La probabilité théorique reste stricte à 1/49 (~2,04%).</span>
+        </div>
+    </div>
+
+    <!-- Onglet 2 : Tous (1-49) -->
+    <div id="tab-tous" class="tab-content">
+        <div class="card">
+            <div class="card-title">Fréquences des 49 Numéros (6 mois)</div>
+            <div class="stat-grid" id="all-grid"></div>
+        </div>
+    </div>
+
+    <!-- Onglet 3 : Chance -->
+    <div id="tab-chance" class="tab-content">
+        <div class="card">
+            <div class="card-title">Fréquences des 10 Numéros Chance</div>
+            <div class="stat-grid" id="chance-grid"></div>
+        </div>
+
+        <div class="reminder">
+            ⚠️ <span>Rappel : Chaque tirage est indépendant. La probabilité théorique reste stricte à 1/49 (~2,04%).</span>
+        </div>
+    </div>
+
+    <!-- Onglet 4 : Flash -->
+    <div id="tab-flash" class="tab-content">
         <div class="card">
             <div class="card-title">🔥 Option Chauds (Poursuite)</div>
-            <div class="balls-row" id="hot-grid">
-                <!-- Boules injectées par JS -->
-            </div>
+            <div class="balls-row" id="hot-flash-grid"></div>
         </div>
 
-        <!-- Card 2 : Option Froids -->
         <div class="card">
             <div class="card-title">❄️ Option Froids (Rattrapage)</div>
-            <div class="balls-row" id="cold-grid">
-                <!-- Boules injectées par JS -->
-            </div>
+            <div class="balls-row" id="cold-flash-grid"></div>
         </div>
 
-        <!-- Card 3 : Générateur Aléatoire Statistique -->
         <div class="card">
             <div class="card-title">🎲 Générateur Aléatoire Statistique</div>
             <button class="btn-generate" onclick="generateMixGrid()">Générer une Grille Mixte</button>
-            <div class="balls-row" id="mix-grid">
-                <!-- Boules générées aléatoirement -->
-            </div>
+            <div class="balls-row" id="mix-grid"></div>
         </div>
     </div>
 
@@ -178,7 +260,14 @@
         let globalMainStats = [];
         let globalChanceStats = [];
 
-        // Chargement du fichier CSV local
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabName).classList.add('active');
+            btn.classList.add('active');
+        }
+
         fetch('./loto.csv')
             .then(res => {
                 if (!res.ok) throw new Error("Fichier introuvable");
@@ -196,18 +285,28 @@
                 }
                 if (draws.length > 0) {
                     globalDraws = draws;
+                    document.getElementById('status').style.display = 'none';
+                    document.getElementById('draws-count').innerText = "Analyse des " + draws.length + " derniers tirages";
                     processStats();
-                    document.getElementById('status').innerText = "✅ Statistiques à jour (" + draws.length + " tirages analysés)";
                 } else {
-                    document.getElementById('status').innerText = "⚠️ Erreur dans le format du fichier CSV.";
+                    document.getElementById('status').innerText = "⚠️ Erreur de format dans loto.csv";
                 }
             })
             .catch(err => {
-                document.getElementById('status').innerText = "⚠️ Fichier loto.csv introuvable sur le serveur.";
+                document.getElementById('status').innerText = "⚠️ Fichier loto.csv introuvable.";
             });
 
+        function renderStatCard(num, count, ecart, type='blue') {
+            return `
+                <div class="stat-card">
+                    <div class="ball ${type}">${num}</div>
+                    <div class="stat-label">${count} sort.<br>Écart: ${ecart}</div>
+                </div>
+            `;
+        }
+
         function processStats() {
-            // Stats numéros principaux (1-49)
+            // Stats principales (1-49)
             globalMainStats = Array.from({length: 49}, (_, i) => {
                 const num = i + 1;
                 const count = globalDraws.filter(d => [d.b1, d.b2, d.b3, d.b4, d.b5].includes(num)).length;
@@ -218,7 +317,7 @@
                 return { num, count, ecart };
             });
 
-            // Stats numéros chance (1-10)
+            // Stats Chance (1-10)
             globalChanceStats = Array.from({length: 10}, (_, i) => {
                 const num = i + 1;
                 const count = globalDraws.filter(d => d.chance === num).length;
@@ -229,34 +328,50 @@
                 return { num, count, ecart };
             });
 
-            // Rendu Grille Chauds (Top 5 + Top Chance)
+            // Top 5 / Flop 5
             const sortedHot = [...globalMainStats].sort((a,b) => b.count - a.count || a.ecart - b.ecart);
-            const topChance = [...globalChanceStats].sort((a,b) => b.count - a.count)[0];
-            
-            let hotHtml = sortedHot.slice(0, 5).map(s => `<div class="ball hot">${s.num}</div>`).join('');
-            hotHtml += `<div class="ball chance">${topChance.num}</div>`;
-            document.getElementById('hot-grid').innerHTML = hotHtml;
-
-            // Rendu Grille Froids (Flop 5 + Flop Chance)
             const sortedCold = [...globalMainStats].sort((a,b) => a.count - b.count || b.ecart - a.ecart);
-            const flopChance = [...globalChanceStats].sort((a,b) => a.count - b.count || b.ecart - a.ecart)[0];
             
-            let coldHtml = sortedCold.slice(0, 5).map(s => `<div class="ball cold">${s.num}</div>`).join('');
-            coldHtml += `<div class="ball chance">${flopChance.num}</div>`;
-            document.getElementById('cold-grid').innerHTML = coldHtml;
+            const top5 = sortedHot.slice(0, 5);
+            const flop5 = sortedCold.slice(0, 5);
 
-            // Génération d'une première grille mixte
+            document.getElementById('top5-grid').innerHTML = top5.map(s => renderStatCard(s.num, s.count, s.ecart, 'hot')).join('');
+            document.getElementById('flop5-grid').innerHTML = flop5.map(s => renderStatCard(s.num, s.count, s.ecart, 'cold')).join('');
+
+            // Grille 1-49
+            const top5Nums = top5.map(s => s.num);
+            const flop5Nums = flop5.map(s => s.num);
+
+            document.getElementById('all-grid').innerHTML = globalMainStats.map(s => {
+                let type = 'blue';
+                if (top5Nums.includes(s.num)) type = 'hot';
+                else if (flop5Nums.includes(s.num)) type = 'cold';
+                return renderStatCard(s.num, s.count, s.ecart, type);
+            }).join('');
+
+            // Grille Chance 1-10
+            document.getElementById('chance-grid').innerHTML = globalChanceStats.map(s => renderStatCard(s.num, s.count, s.ecart, 'chance')).join('');
+
+            // Grille Flash (Chaud / Froid)
+            const topChance = [...globalChanceStats].sort((a,b) => b.count - a.count)[0];
+            const flopChance = [...globalChanceStats].sort((a,b) => a.count - b.count || b.ecart - a.ecart)[0];
+
+            let hotFlash = top5.map(s => `<div class="ball hot">${s.num}</div>`).join('') + `<div class="ball chance">${topChance.num}</div>`;
+            let coldFlash = flop5.map(s => `<div class="ball cold">${s.num}</div>`).join('') + `<div class="ball chance">${flopChance.num}</div>`;
+
+            document.getElementById('hot-flash-grid').innerHTML = hotFlash;
+            document.getElementById('cold-flash-grid').innerHTML = coldFlash;
+
+            // Générer grille mixte
             generateMixGrid();
         }
 
         function generateMixGrid() {
             if (globalMainStats.length === 0) return;
 
-            // Tri par popularité
             const sortedHot = [...globalMainStats].sort((a,b) => b.count - a.count);
             const sortedCold = [...globalMainStats].sort((a,b) => a.count - b.count);
             
-            // Prendre 2 chauds, 2 froids, 1 au hasard parmi le milieu
             const h1 = sortedHot[Math.floor(Math.random() * 8)].num;
             let h2 = sortedHot[Math.floor(Math.random() * 8)].num;
             while (h2 === h1) h2 = sortedHot[Math.floor(Math.random() * 8)].num;
@@ -268,13 +383,10 @@
             const middle = globalMainStats.filter(s => !([h1, h2, c1, c2].includes(s.num)));
             const m1 = middle[Math.floor(Math.random() * middle.length)].num;
 
-            // Assembler et trier les 5 numéros principaux
             const mainNumbers = [h1, h2, c1, c2, m1].sort((a,b) => a - b);
-            
-            // Numéro chance aléatoire
             const chanceNum = Math.floor(Math.random() * 10) + 1;
 
-            let mixHtml = mainNumbers.map(n => `<div class="ball mix">${n}</div>`).join('');
+            let mixHtml = mainNumbers.map(n => `<div class="ball blue">${n}</div>`).join('');
             mixHtml += `<div class="ball chance">${chanceNum}</div>`;
             
             document.getElementById('mix-grid').innerHTML = mixHtml;
