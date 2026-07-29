@@ -4,22 +4,25 @@ on:
   schedule:
     # S'exécute automatiquement du lundi au samedi à 22h30 UTC
     - cron: '30 22 * * 1,3,6'
-  workflow_dispatch: # Permet de lancer la mise à jour manuellement si besoin
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   update-csv:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code du dépôt
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Télécharger le dernier CSV officiel
+      - name: Télécharger le dernier CSV
         run: |
-          curl -s -L "https://api.allorigins.win/raw?url=https://www.statistiques-loto.fr/csv/loto_201911.csv" -o loto.csv
+          curl -s -L "https://www.statistiques-loto.fr/csv/loto_201911.csv" -o loto.csv
 
       - name: Sauvegarder les modifications
         run: |
-          git config --global user.name 'GitHub Action Bot'
-          git config --global user.email 'action@github.com'
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add loto.csv
           git diff --quiet && git diff --staged --quiet || (git commit -m "Mise à jour auto du fichier loto.csv" && git push)
