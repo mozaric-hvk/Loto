@@ -16,6 +16,7 @@
             --chance-color: #eab308;
             --blue-accent: #3b82f6;
             --blue-ball: #38bdf8;
+            --purple-accent: #a855f7;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -25,13 +26,13 @@
         h1 { font-size: 1.3rem; font-weight: 800; color: var(--blue-ball); display: flex; align-items: center; justify-content: center; gap: 8px; }
         .subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
-        /* Navigation Tabs (5 onglets) */
+        /* Navigation Tabs (6 onglets) */
         .nav-bar {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 4px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 2px;
             background: #111a2e;
-            padding: 6px;
+            padding: 4px;
             border-radius: 14px;
             border: 1px solid var(--border-color);
             margin-bottom: 20px;
@@ -40,9 +41,9 @@
             background: transparent;
             border: none;
             color: var(--text-muted);
-            padding: 8px 2px;
+            padding: 8px 1px;
             border-radius: 10px;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             font-weight: 600;
             display: flex;
             flex-direction: column;
@@ -59,14 +60,11 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
 
-        /* Status */
         #status { text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 16px; }
 
-        /* General Tab Display */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* Cards */
         .card {
             background: var(--card-bg);
             border-radius: 18px;
@@ -85,7 +83,6 @@
             gap: 8px;
         }
 
-        /* Grids for Stats */
         .stat-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -119,6 +116,7 @@
         .ball.cold { background: var(--cold-color); }
         .ball.blue { background: var(--blue-ball); color: #0d1527; }
         .ball.chance { background: var(--chance-color); color: #0d1527; }
+        .ball.purple { background: var(--purple-accent); }
 
         .stat-label {
             font-size: 0.68rem;
@@ -126,7 +124,6 @@
             line-height: 1.2;
         }
 
-        /* Draw Result Card */
         .draw-header {
             display: flex;
             justify-content: space-between;
@@ -135,12 +132,7 @@
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border-color);
         }
-        .draw-date {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-main);
-            text-transform: capitalize;
-        }
+        .draw-date { font-size: 0.95rem; font-weight: 700; color: var(--text-main); text-transform: capitalize; }
         .draw-jackpot {
             font-size: 0.9rem;
             font-weight: 800;
@@ -151,7 +143,6 @@
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
-        /* Reminder Box */
         .reminder {
             font-size: 0.75rem;
             color: var(--text-muted);
@@ -164,13 +155,13 @@
             margin-top: 12px;
         }
 
-        /* Row Flash Balls */
         .balls-row {
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 8px;
             margin-top: 8px;
+            flex-wrap: wrap;
         }
         .balls-row .ball {
             width: 44px;
@@ -179,7 +170,6 @@
             font-size: 1.15rem;
         }
 
-        /* Button Generator */
         .btn-generate {
             width: 100%;
             background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
@@ -216,6 +206,10 @@
         <button class="nav-item" onclick="switchTab('chance', this)">
             <span>⭐</span>
             <span>Chance</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('probables', this)">
+            <span>🔮</span>
+            <span>Probables</span>
         </button>
         <button class="nav-item" onclick="switchTab('flash', this)">
             <span>🎲</span>
@@ -260,13 +254,29 @@
             <div class="card-title">Fréquences des 10 Numéros Chance</div>
             <div class="stat-grid" id="chance-grid"></div>
         </div>
+    </div>
+
+    <!-- Onglet 4 : Les 10 Nouveaux Numéros Probables -->
+    <div id="tab-probables" class="tab-content">
+        <div class="card">
+            <div class="card-title">🔮 Top 10 Numéros les + Probables</div>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px;">
+                Calculés en pondérant l'écart de retard (retour à la moyenne) et la tendance récente de sortie.
+            </p>
+            <div class="stat-grid" id="probable-grid"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">⭐ Numéro Chance le + Probable</div>
+            <div class="balls-row" id="probable-chance-row"></div>
+        </div>
 
         <div class="reminder">
-            ⚠️ <span>Rappel : Chaque tirage est indépendant. La probabilité théorique reste stricte à 1/49 (~2,04%).</span>
+            💡 <span>Score de probabilité = Écart de retard + (Sorties récentes x 1.5). Plus le score est élevé, plus le numéro est priorisé par le modèle.</span>
         </div>
     </div>
 
-    <!-- Onglet 4 : Flash -->
+    <!-- Onglet 5 : Flash -->
     <div id="tab-flash" class="tab-content">
         <div class="card">
             <div class="card-title">🔥 Option Chauds (Poursuite)</div>
@@ -285,7 +295,7 @@
         </div>
     </div>
 
-    <!-- Onglet 5 : Derniers Tirages -->
+    <!-- Onglet 6 : Derniers Tirages -->
     <div id="tab-derniers" class="tab-content">
         <div id="recent-draws-container"></div>
     </div>
@@ -303,48 +313,74 @@
             btn.classList.add('active');
         }
 
-        fetch('./loto.csv')
+        fetch('./loto.csv?v=' + new Date().getTime())
             .then(res => {
                 if (!res.ok) throw new Error("Fichier introuvable");
                 return res.text();
             })
             .then(text => {
                 const lines = text.split('\n');
+                if (lines.length < 2) return;
+
+                const headers = lines[0].split(';').map(h => h.trim().toLowerCase());
+                
+                const idxDay = headers.findIndex(h => h.includes('jour'));
+                const idxDate = headers.findIndex(h => h === 'date_de_tirage');
+                const idxB1 = headers.findIndex(h => h.includes('boule_1'));
+                const idxB2 = headers.findIndex(h => h.includes('boule_2'));
+                const idxB3 = headers.findIndex(h => h.includes('boule_3'));
+                const idxB4 = headers.findIndex(h => h.includes('boule_4'));
+                const idxB5 = headers.findIndex(h => h.includes('boule_5'));
+                const idxChance = headers.findIndex(h => h.includes('numero_chance'));
+                const idxRapport1 = headers.findIndex(h => h.includes('rapport_du_rang1'));
+
                 const draws = [];
+
                 for (let i = 1; i < lines.length; i++) {
                     const cols = lines[i].split(';');
-                    if (cols.length >= 10) {
-                        const day = cols[1] ? cols[1].trim() : '';
-                        const dateStr = cols[2] ? cols[2].trim() : '';
-                        const b1 = parseInt(cols[4]), b2 = parseInt(cols[5]), b3 = parseInt(cols[6]), b4 = parseInt(cols[7]), b5 = parseInt(cols[8]), chance = parseInt(cols[9]);
+                    if (cols.length > 8) {
+                        const day = idxDay !== -1 ? cols[idxDay].trim() : '';
+                        const dateStr = idxDate !== -1 ? cols[idxDate].trim() : cols[2].trim();
                         
-                        // Traitement Jackpot / Rapport Rang 1
+                        const b1 = parseInt(cols[idxB1 !== -1 ? idxB1 : 4]);
+                        const b2 = parseInt(cols[idxB2 !== -1 ? idxB2 : 5]);
+                        const b3 = parseInt(cols[idxB3 !== -1 ? idxB3 : 6]);
+                        const b4 = parseInt(cols[idxB4 !== -1 ? idxB4 : 7]);
+                        const b5 = parseInt(cols[idxB5 !== -1 ? idxB5 : 8]);
+                        const chance = parseInt(cols[idxChance !== -1 ? idxChance : 9]);
+
                         let jackpot = "Jackpot";
-                        if (cols[11] && !isNaN(parseFloat(cols[11].replace(',', '.')))) {
-                            const val = parseFloat(cols[11].replace(',', '.'));
-                            jackpot = val > 0 ? val.toLocaleString('fr-FR') + ' €' : 'Jackpot FDJ';
-                        } else if (cols[10] && !isNaN(parseFloat(cols[10].replace(',', '.')))) {
-                            const val = parseFloat(cols[10].replace(',', '.'));
-                            jackpot = val > 0 ? val.toLocaleString('fr-FR') + ' €' : 'Jackpot FDJ';
+                        const rawRapport = idxRapport1 !== -1 ? cols[idxRapport1] : (cols[11] || cols[10]);
+                        if (rawRapport) {
+                            const val = parseFloat(rawRapport.replace(',', '.').replace(/\s/g, ''));
+                            if (!isNaN(val) && val > 0) {
+                                jackpot = val.toLocaleString('fr-FR') + ' €';
+                            }
+                        }
+
+                        let timestamp = 0;
+                        if (dateStr.includes('/')) {
+                            const parts = dateStr.split('/');
+                            if (parts.length === 3) {
+                                timestamp = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+                            }
                         }
 
                         if (!isNaN(b1) && !isNaN(chance)) {
-                            draws.push({ day, dateStr, b1, b2, b3, b4, b5, chance, jackpot });
+                            draws.push({ day, dateStr, timestamp, b1, b2, b3, b4, b5, chance, jackpot });
                         }
                     }
                 }
+
+                draws.sort((a, b) => b.timestamp - a.timestamp);
+
                 if (draws.length > 0) {
                     globalDraws = draws;
                     document.getElementById('status').style.display = 'none';
                     document.getElementById('draws-count').innerText = "Analyse des " + draws.length + " derniers tirages";
                     processStats();
                     renderRecentDraws();
-                } else {
-                    document.getElementById('status').innerText = "⚠️ Erreur de format dans loto.csv";
                 }
-            })
-            .catch(err => {
-                document.getElementById('status').innerText = "⚠️ Fichier loto.csv introuvable.";
             });
 
         function renderStatCard(num, count, ecart, type='blue') {
@@ -393,7 +429,11 @@
                 for (let idx = 0; idx < globalDraws.length; idx++) {
                     if ([globalDraws[idx].b1, globalDraws[idx].b2, globalDraws[idx].b3, globalDraws[idx].b4, globalDraws[idx].b5].includes(num)) { ecart = idx; break; }
                 }
-                return { num, count, ecart };
+
+                // Calcul du Score de Probabilité (Écart + 1.5 * Sorties)
+                const scoreProbable = ecart + (count * 1.5);
+
+                return { num, count, ecart, scoreProbable };
             });
 
             globalChanceStats = Array.from({length: 10}, (_, i) => {
@@ -403,7 +443,8 @@
                 for (let idx = 0; idx < globalDraws.length; idx++) {
                     if (globalDraws[idx].chance === num) { ecart = idx; break; }
                 }
-                return { num, count, ecart };
+                const scoreProbable = ecart + (count * 1.5);
+                return { num, count, ecart, scoreProbable };
             });
 
             const sortedHot = [...globalMainStats].sort((a,b) => b.count - a.count || a.ecart - b.ecart);
@@ -426,6 +467,16 @@
             }).join('');
 
             document.getElementById('chance-grid').innerHTML = globalChanceStats.map(s => renderStatCard(s.num, s.count, s.ecart, 'chance')).join('');
+
+            // Génération de l'Onglet PROBABLES (Top 10 numéros calculés)
+            const topProbables = [...globalMainStats].sort((a, b) => b.scoreProbable - a.scoreProbable).slice(0, 10);
+            document.getElementById('probable-grid').innerHTML = topProbables.map(s => renderStatCard(s.num, s.count, s.ecart, 'purple')).join('');
+
+            const topChanceProbable = [...globalChanceStats].sort((a, b) => b.scoreProbable - a.scoreProbable)[0];
+            document.getElementById('probable-chance-row').innerHTML = `
+                <div class="ball chance">${topChanceProbable.num}</div>
+                <span style="font-size:0.85rem; color:var(--text-muted);">(Écart : ${topChanceProbable.ecart} tirages | ${topChanceProbable.count} sorties)</span>
+            `;
 
             const topChance = [...globalChanceStats].sort((a,b) => b.count - a.count)[0];
             const flopChance = [...globalChanceStats].sort((a,b) => a.count - b.count || b.ecart - a.ecart)[0];
