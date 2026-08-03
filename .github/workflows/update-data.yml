@@ -14,36 +14,67 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download and extract Loto ZIP
-        run: |
-          mkdir -p work
-          cd work
-          curl -sL "https://www.data.gouv.fr/fr/datasets/r/5902129a-773a-441e-a4e5-4767119f9e7b" -o loto.zip
-          unzip -o loto.zip
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Process CSV with Python
+      - name: Install Pandas & Requests
+        run: pip install pandas requests
+
+      - name: Download, Extract and Process CSV
         run: |
           python3 -c "
-          import glob, os, pandas as pd
+          import requests, zipfile, io, os, glob
+          import pandas as pd
+
+          # URLs de secours FDJ / DataGouv
+          urls = [
+              'https://www.data.gouv.fr/fr/datasets/r/5902129a-773a-441e-a4e5-4767119f9e7b',
+              'https://www.fdj.fr/jeux-de-tirage/loto/resultats/historique'
+          ]
+
+          headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+          zip_content = None
+
+          print('Téléchargement des données...')
+          for url in urls:
+              try:
+                  r = requests.get(url, headers=headers, timeout=15)
+                  if r.status_code == 200 and r.content[:4] == b'PK\x03\x04': # Vérification signature ZIP
+                      zip_content = r.content
+                      print(f'Archive ZIP valide récupérée depuis : {url}')
+                      break
+              except Exception as e:
+                  print(f'Échec sur {url} : {e}')
+
+          if not zip_content:
+              raise ValueError('Impossible de récupérer un fichier ZIP valide.')
+
+          # Extraction en mémoire
+          with zipfile.ZipFile(io.BytesIO(zip_content)) as z:
+              z.extractall('work')
 
           csv_files = glob.glob('work/*.csv')
-          if csv_files:
-              try:
-                  df = pd.read_csv(csv_files[0], sep=';', encoding='utf-8', low_memory=False)
-              except:
-                  df = pd.read_csv(csv_files[0], sep=';', encoding='iso-8859-1', low_memory=False)
+          if not csv_files:
+              raise FileNotFoundError('Aucun fichier CSV trouvé dans l\'archive.')
 
-              # Recherche de la colonne date
-              date_cols = [c for c in df.columns if 'date_de_tirage' in c.lower()]
-              if date_cols:
-                  df['dt_temp'] = pd.to_datetime(df[date_cols[0]], format='%d/%m/%Y', errors='coerce')
-                  df = df.sort_values(by='dt_temp', ascending=False)
-                  df = df.drop(columns=['dt_temp'])
+          # Lecture du CSV
+          try:
+              df = pd.read_csv(csv_files[0], sep=';', encoding='utf-8', low_memory=False)
+          except:
+              df = pd.read_csv(csv_files[0], sep=';', encoding='iso-8859-1', low_memory=False)
 
-              df.to_csv('loto.csv', sep=';', index=False)
-              print('OK: loto.csv généré avec succès')
-          else:
-              print('Erreur: Aucun fichier CSV trouvé')
+          # Tri par date de tirage décroissante
+          date_cols = [c for c in df.columns if 'date_de_tirage' in c.lower()]
+          if date_cols:
+              df['dt_temp'] = pd.to_datetime(df[date_cols[0]], format='%d/%m/%Y', errors='coerce')
+              df = df.sort_values(by='dt_temp', ascending=False)
+              df = df.drop(columns=['dt_temp'])
+
+          # Sauvegarde
+          df.to_csv('loto.csv', sep=';', index=False)
+          print('OK : loto.csv mis à jour avec succès !')
           "
 
       - name: Commit and push changes
