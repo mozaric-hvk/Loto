@@ -124,6 +124,15 @@
             line-height: 1.2;
         }
 
+        .score-badge {
+            font-size: 0.62rem;
+            color: var(--purple-accent);
+            font-weight: 700;
+            background: rgba(168, 85, 247, 0.15);
+            padding: 2px 4px;
+            border-radius: 6px;
+        }
+
         .draw-header {
             display: flex;
             justify-content: space-between;
@@ -175,15 +184,27 @@
             background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             color: #fff;
             border: none;
-            padding: 16px;
+            padding: 14px;
             border-radius: 14px;
-            font-size: 1.05rem;
+            font-size: 1rem;
             font-weight: 700;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-            margin-bottom: 18px;
+            margin-bottom: 14px;
+        }
+        .btn-generate.purple {
+            background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
         }
         .btn-generate:active { transform: scale(0.98); }
+
+        .score-info {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--purple-accent);
+            font-weight: 600;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -256,23 +277,21 @@
         </div>
     </div>
 
-    <!-- Onglet 4 : Les 10 Nouveaux Numéros Probables -->
+    <!-- Onglet 4 : Les 10 Numéros Probables -->
     <div id="tab-probables" class="tab-content">
         <div class="card">
             <div class="card-title">🔮 Top 10 Numéros les + Probables</div>
             <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px;">
-                Calculés en pondérant l'écart de retard (retour à la moyenne) et la tendance récente de sortie.
+                Classés selon leur score (Écart de retard + Sorties x 1.5).
             </p>
             <div class="stat-grid" id="probable-grid"></div>
         </div>
 
         <div class="card">
-            <div class="card-title">⭐ Numéro Chance le + Probable</div>
-            <div class="balls-row" id="probable-chance-row"></div>
-        </div>
-
-        <div class="reminder">
-            💡 <span>Score de probabilité = Écart de retard + (Sorties récentes x 1.5). Plus le score est élevé, plus le numéro est priorisé par le modèle.</span>
+            <div class="card-title">✨ Grille Optimisée par Score</div>
+            <button class="btn-generate purple" onclick="generateProbableGrid()">Générer la Meilleure Grille Probable</button>
+            <div class="balls-row" id="probable-grid-result"></div>
+            <div class="score-info" id="probable-grid-score"></div>
         </div>
     </div>
 
@@ -292,6 +311,7 @@
             <div class="card-title">🎲 Générateur Aléatoire Statistique</div>
             <button class="btn-generate" onclick="generateMixGrid()">Générer une Grille Mixte</button>
             <div class="balls-row" id="mix-grid"></div>
+            <div class="score-info" id="mix-grid-score"></div>
         </div>
     </div>
 
@@ -383,11 +403,13 @@
                 }
             });
 
-        function renderStatCard(num, count, ecart, type='blue') {
+        function renderStatCard(num, count, ecart, type='blue', score=null) {
+            const scoreLabel = score !== null ? `<div class="score-badge">Score: ${score.toFixed(1)}</div>` : '';
             return `
                 <div class="stat-card">
                     <div class="ball ${type}">${num}</div>
                     <div class="stat-label">${count} sort.<br>Écart: ${ecart}</div>
+                    ${scoreLabel}
                 </div>
             `;
         }
@@ -430,9 +452,7 @@
                     if ([globalDraws[idx].b1, globalDraws[idx].b2, globalDraws[idx].b3, globalDraws[idx].b4, globalDraws[idx].b5].includes(num)) { ecart = idx; break; }
                 }
 
-                // Calcul du Score de Probabilité (Écart + 1.5 * Sorties)
                 const scoreProbable = ecart + (count * 1.5);
-
                 return { num, count, ecart, scoreProbable };
             });
 
@@ -468,15 +488,9 @@
 
             document.getElementById('chance-grid').innerHTML = globalChanceStats.map(s => renderStatCard(s.num, s.count, s.ecart, 'chance')).join('');
 
-            // Génération de l'Onglet PROBABLES (Top 10 numéros calculés)
+            // Affichage Onglet PROBABLES avec les Badges de Score
             const topProbables = [...globalMainStats].sort((a, b) => b.scoreProbable - a.scoreProbable).slice(0, 10);
-            document.getElementById('probable-grid').innerHTML = topProbables.map(s => renderStatCard(s.num, s.count, s.ecart, 'purple')).join('');
-
-            const topChanceProbable = [...globalChanceStats].sort((a, b) => b.scoreProbable - a.scoreProbable)[0];
-            document.getElementById('probable-chance-row').innerHTML = `
-                <div class="ball chance">${topChanceProbable.num}</div>
-                <span style="font-size:0.85rem; color:var(--text-muted);">(Écart : ${topChanceProbable.ecart} tirages | ${topChanceProbable.count} sorties)</span>
-            `;
+            document.getElementById('probable-grid').innerHTML = topProbables.map(s => renderStatCard(s.num, s.count, s.ecart, 'purple', s.scoreProbable)).join('');
 
             const topChance = [...globalChanceStats].sort((a,b) => b.count - a.count)[0];
             const flopChance = [...globalChanceStats].sort((a,b) => a.count - b.count || b.ecart - a.ecart)[0];
@@ -487,33 +501,59 @@
             document.getElementById('hot-flash-grid').innerHTML = hotFlash;
             document.getElementById('cold-flash-grid').innerHTML = coldFlash;
 
+            generateProbableGrid();
             generateMixGrid();
         }
 
+        // Générateur spécial basé sur les 5 plus hauts scores de probabilité
+        function generateProbableGrid() {
+            if (globalMainStats.length === 0) return;
+
+            const top5Probable = [...globalMainStats].sort((a, b) => b.scoreProbable - a.scoreProbable).slice(0, 5);
+            const topChance = [...globalChanceStats].sort((a, b) => b.scoreProbable - a.scoreProbable)[0];
+
+            const sortedNums = top5Probable.map(s => s.num).sort((a,b) => a - b);
+            
+            let html = sortedNums.map(n => `<div class="ball purple">${n}</div>`).join('');
+            html += `<div class="ball chance">${topChance.num}</div>`;
+
+            const avgScore = (top5Probable.reduce((acc, s) => acc + s.scoreProbable, 0) + topChance.scoreProbable) / 6;
+
+            document.getElementById('probable-grid-result').innerHTML = html;
+            document.getElementById('probable-grid-score').innerText = `Score Moyen de la Grille : ${avgScore.toFixed(1)} pt`;
+        }
+
+        // Générateur Aléatoire Statistique avec affichage du score de probabilité
         function generateMixGrid() {
             if (globalMainStats.length === 0) return;
 
             const sortedHot = [...globalMainStats].sort((a,b) => b.count - a.count);
             const sortedCold = [...globalMainStats].sort((a,b) => a.count - b.count);
             
-            const h1 = sortedHot[Math.floor(Math.random() * 8)].num;
-            let h2 = sortedHot[Math.floor(Math.random() * 8)].num;
-            while (h2 === h1) h2 = sortedHot[Math.floor(Math.random() * 8)].num;
+            const h1 = sortedHot[Math.floor(Math.random() * 8)];
+            let h2 = sortedHot[Math.floor(Math.random() * 8)];
+            while (h2.num === h1.num) h2 = sortedHot[Math.floor(Math.random() * 8)];
 
-            const c1 = sortedCold[Math.floor(Math.random() * 8)].num;
-            let c2 = sortedCold[Math.floor(Math.random() * 8)].num;
-            while (c2 === c1) c2 = sortedCold[Math.floor(Math.random() * 8)].num;
+            const c1 = sortedCold[Math.floor(Math.random() * 8)];
+            let c2 = sortedCold[Math.floor(Math.random() * 8)];
+            while (c2.num === c1.num) c2 = sortedCold[Math.floor(Math.random() * 8)];
 
-            const middle = globalMainStats.filter(s => !([h1, h2, c1, c2].includes(s.num)));
-            const m1 = middle[Math.floor(Math.random() * middle.length)].num;
+            const middle = globalMainStats.filter(s => !([h1.num, h2.num, c1.num, c2.num].includes(s.num)));
+            const m1 = middle[Math.floor(Math.random() * middle.length)];
 
-            const mainNumbers = [h1, h2, c1, c2, m1].sort((a,b) => a - b);
-            const chanceNum = Math.floor(Math.random() * 10) + 1;
+            const selectedStats = [h1, h2, c1, c2, m1];
+            selectedStats.sort((a,b) => a.num - b.num);
 
-            let mixHtml = mainNumbers.map(n => `<div class="ball blue">${n}</div>`).join('');
-            mixHtml += `<div class="ball chance">${chanceNum}</div>`;
-            
+            const randomChanceIdx = Math.floor(Math.random() * 10);
+            const chanceStat = globalChanceStats[randomChanceIdx];
+
+            let mixHtml = selectedStats.map(s => `<div class="ball blue">${s.num}</div>`).join('');
+            mixHtml += `<div class="ball chance">${chanceStat.num}</div>`;
+
+            const avgScore = (selectedStats.reduce((acc, s) => acc + s.scoreProbable, 0) + chanceStat.scoreProbable) / 6;
+
             document.getElementById('mix-grid').innerHTML = mixHtml;
+            document.getElementById('mix-grid-score').innerText = `Score de Probabilité du Tirage : ${avgScore.toFixed(1)} pt`;
         }
     </script>
 </body>
