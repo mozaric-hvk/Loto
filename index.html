@@ -26,10 +26,10 @@
         h1 { font-size: 1.3rem; font-weight: 800; color: var(--blue-ball); display: flex; align-items: center; justify-content: center; gap: 8px; }
         .subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
-        /* Navigation Tabs (6 onglets) */
+        /* Navigation Tabs (7 onglets) */
         .nav-bar {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 2px;
             background: #111a2e;
             padding: 4px;
@@ -43,7 +43,7 @@
             color: var(--text-muted);
             padding: 8px 1px;
             border-radius: 10px;
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 600;
             display: flex;
             flex-direction: column;
@@ -205,6 +205,48 @@
             font-weight: 600;
             margin-top: 10px;
         }
+
+        /* Grille interactive de sélection */
+        .picker-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .picker-btn {
+            background: #0f192d;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 8px 0;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .picker-btn.selected {
+            background: var(--blue-accent);
+            color: #fff;
+            border-color: #60a5fa;
+        }
+        .picker-btn.chance-btn.selected {
+            background: var(--chance-color);
+            color: #0d1527;
+        }
+
+        .summary-box {
+            background: #0f192d;
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 14px;
+            border: 1px solid var(--border-color);
+        }
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+        .summary-line strong { color: var(--blue-ball); }
     </style>
 </head>
 <body>
@@ -231,6 +273,10 @@
         <button class="nav-item" onclick="switchTab('probables', this)">
             <span>🔮</span>
             <span>Probables</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('simulation', this)">
+            <span>🎯</span>
+            <span>Simu</span>
         </button>
         <button class="nav-item" onclick="switchTab('flash', this)">
             <span>🎲</span>
@@ -295,7 +341,29 @@
         </div>
     </div>
 
-    <!-- Onglet 5 : Flash -->
+    <!-- Onglet 5 : Simulation de Vos Numéros -->
+    <div id="tab-simulation" class="tab-content">
+        <div class="card">
+            <div class="card-title">🎯 Choisissez vos 5 numéros</div>
+            <div class="picker-grid" id="main-picker"></div>
+
+            <div class="card-title" style="margin-top: 16px;">⭐ Choisissez votre numéro Chance</div>
+            <div class="picker-grid" id="chance-picker"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📊 Analyse de votre Grille</div>
+            <div class="stat-grid" id="sim-details-grid"></div>
+
+            <div class="summary-box" id="sim-summary">
+                <div class="summary-line"><span>Score moyen combiné :</span> <strong id="sim-score-avg">0 pt</strong></div>
+                <div class="summary-line"><span>Rang de tendance globale :</span> <strong id="sim-rank">-</strong></div>
+                <div class="summary-line"><span>Probabilité théorique jackpot :</span> <strong>1 / 19 068 840</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onglet 6 : Flash -->
     <div id="tab-flash" class="tab-content">
         <div class="card">
             <div class="card-title">🔥 Option Chauds (Poursuite)</div>
@@ -315,7 +383,7 @@
         </div>
     </div>
 
-    <!-- Onglet 6 : Derniers Tirages -->
+    <!-- Onglet 7 : Derniers Tirages -->
     <div id="tab-derniers" class="tab-content">
         <div id="recent-draws-container"></div>
     </div>
@@ -324,6 +392,9 @@
         let globalDraws = [];
         let globalMainStats = [];
         let globalChanceStats = [];
+
+        let selectedMainNums = [1, 2, 3, 4, 5];
+        let selectedChanceNum = 1;
 
         function switchTab(tabName, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -400,6 +471,7 @@
                     document.getElementById('draws-count').innerText = "Analyse des " + draws.length + " derniers tirages";
                     processStats();
                     renderRecentDraws();
+                    initPicker();
                 }
             });
 
@@ -488,7 +560,6 @@
 
             document.getElementById('chance-grid').innerHTML = globalChanceStats.map(s => renderStatCard(s.num, s.count, s.ecart, 'chance')).join('');
 
-            // Affichage Onglet PROBABLES avec les Badges de Score
             const topProbables = [...globalMainStats].sort((a, b) => b.scoreProbable - a.scoreProbable).slice(0, 10);
             document.getElementById('probable-grid').innerHTML = topProbables.map(s => renderStatCard(s.num, s.count, s.ecart, 'purple', s.scoreProbable)).join('');
 
@@ -505,7 +576,75 @@
             generateMixGrid();
         }
 
-        // Générateur spécial basé sur les 5 plus hauts scores de probabilité
+        // --- GESTION DE LA SIMULATION INTERACTIVE ---
+        function initPicker() {
+            let mainHtml = '';
+            for (let i = 1; i <= 49; i++) {
+                const isSel = selectedMainNums.includes(i) ? 'selected' : '';
+                mainHtml += `<button class="picker-btn ${isSel}" onclick="toggleMainPicker(${i}, this)">${i}</button>`;
+            }
+            document.getElementById('main-picker').innerHTML = mainHtml;
+
+            let chanceHtml = '';
+            for (let i = 1; i <= 10; i++) {
+                const isSel = selectedChanceNum === i ? 'selected' : '';
+                chanceHtml += `<button class="picker-btn chance-btn ${isSel}" onclick="selectChancePicker(${i}, this)">${i}</button>`;
+            }
+            document.getElementById('chance-picker').innerHTML = chanceHtml;
+
+            updateSimulationResults();
+        }
+
+        function toggleMainPicker(num, btn) {
+            if (selectedMainNums.includes(num)) {
+                if (selectedMainNums.length > 1) {
+                    selectedMainNums = selectedMainNums.filter(n => n !== num);
+                    btn.classList.remove('selected');
+                }
+            } else {
+                if (selectedMainNums.length < 5) {
+                    selectedMainNums.push(num);
+                    btn.classList.add('selected');
+                } else {
+                    selectedMainNums.shift();
+                    selectedMainNums.push(num);
+                    initPicker();
+                }
+            }
+            updateSimulationResults();
+        }
+
+        function selectChancePicker(num, btn) {
+            selectedChanceNum = num;
+            document.querySelectorAll('.chance-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            updateSimulationResults();
+        }
+
+        function updateSimulationResults() {
+            if (globalMainStats.length === 0) return;
+
+            const selectedMainStats = globalMainStats.filter(s => selectedMainNums.includes(s.num));
+            const selectedChanceStat = globalChanceStats.find(s => s.num === selectedChanceNum);
+
+            let html = selectedMainStats.map(s => renderStatCard(s.num, s.count, s.ecart, 'purple', s.scoreProbable)).join('');
+            html += renderStatCard(selectedChanceStat.num, selectedChanceStat.count, selectedChanceStat.ecart, 'chance', selectedChanceStat.scoreProbable);
+
+            document.getElementById('sim-details-grid').innerHTML = html;
+
+            const allScores = [...selectedMainStats.map(s => s.scoreProbable), selectedChanceStat.scoreProbable];
+            const avgScore = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+
+            document.getElementById('sim-score-avg').innerText = avgScore.toFixed(1) + ' pts';
+
+            let rankText = "Faible";
+            if (avgScore >= 35) rankText = "Très Fort 🌟";
+            else if (avgScore >= 25) rankText = "Favorable 👍";
+            else if (avgScore >= 18) rankText = "Moyen 😐";
+
+            document.getElementById('sim-rank').innerText = rankText;
+        }
+
         function generateProbableGrid() {
             if (globalMainStats.length === 0) return;
 
@@ -523,7 +662,6 @@
             document.getElementById('probable-grid-score').innerText = `Score Moyen de la Grille : ${avgScore.toFixed(1)} pt`;
         }
 
-        // Générateur Aléatoire Statistique avec affichage du score de probabilité
         function generateMixGrid() {
             if (globalMainStats.length === 0) return;
 
