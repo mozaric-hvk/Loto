@@ -19,62 +19,62 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Pandas & Requests
+      - name: Install Dependencies
         run: pip install pandas requests
 
-      - name: Download, Extract and Process CSV
+      - name: Download via FDJ API & Process CSV
         run: |
           python3 -c "
-          import requests, zipfile, io, os, glob
+          import requests, zipfile, io, glob
           import pandas as pd
 
-          # URLs de secours FDJ / DataGouv
-          urls = [
-              'https://www.data.gouv.fr/fr/datasets/r/5902129a-773a-441e-a4e5-4767119f9e7b',
-              'https://www.fdj.fr/jeux-de-tirage/loto/resultats/historique'
-          ]
+          # URL de l'API de téléchargement FDJ
+          api_url = 'https://www.sto.api.fdj.fr/anonymous/service-draw-info/v3/documentations/1a2b3c4d-9876-4562-b3fc-2c963f66afp6'
+          
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+              'Accept-Language': 'fr-FR,fr;q=0.9',
+              'Referer': 'https://www.fdj.fr/'
+          }
 
-          headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-          zip_content = None
+          session = requests.Session()
+          print('Téléchargement du ZIP depuis l\'API STO FDJ...')
+          
+          # allow_redirects=True permet de suivre la redirection vers le fichier ZIP réel
+          r = session.get(api_url, headers=headers, allow_redirects=True, timeout=30)
+          
+          if r.status_code != 200:
+              raise ValueError(f'Erreur de téléchargement API (HTTP {r.status_code})')
 
-          print('Téléchargement des données...')
-          for url in urls:
-              try:
-                  r = requests.get(url, headers=headers, timeout=15)
-                  if r.status_code == 200 and r.content[:4] == b'PK\x03\x04': # Vérification signature ZIP
-                      zip_content = r.content
-                      print(f'Archive ZIP valide récupérée depuis : {url}')
-                      break
-              except Exception as e:
-                  print(f'Échec sur {url} : {e}')
-
-          if not zip_content:
-              raise ValueError('Impossible de récupérer un fichier ZIP valide.')
+          print('Taille du fichier reçu :', len(r.content), 'octets')
 
           # Extraction en mémoire
-          with zipfile.ZipFile(io.BytesIO(zip_content)) as z:
+          with zipfile.ZipFile(io.BytesIO(r.content)) as z:
               z.extractall('work')
 
           csv_files = glob.glob('work/*.csv')
           if not csv_files:
-              raise FileNotFoundError('Aucun fichier CSV trouvé dans l\'archive.')
+              raise FileNotFoundError('Aucun fichier CSV extrait de l\'archive.')
 
-          # Lecture du CSV
+          print(f'Traitement du CSV : {csv_files[0]}')
+
+          # Lecture du CSV avec encodage tolérant
           try:
               df = pd.read_csv(csv_files[0], sep=';', encoding='utf-8', low_memory=False)
           except:
               df = pd.read_csv(csv_files[0], sep=';', encoding='iso-8859-1', low_memory=False)
 
-          # Tri par date de tirage décroissante
+          # Nettoyage et tri décroissant par date de tirage
           date_cols = [c for c in df.columns if 'date_de_tirage' in c.lower()]
           if date_cols:
               df['dt_temp'] = pd.to_datetime(df[date_cols[0]], format='%d/%m/%Y', errors='coerce')
               df = df.sort_values(by='dt_temp', ascending=False)
               df = df.drop(columns=['dt_temp'])
 
-          # Sauvegarde
+          # Enregistrement dans la racine
           df.to_csv('loto.csv', sep=';', index=False)
-          print('OK : loto.csv mis à jour avec succès !')
+          print('OK : loto.csv mis à jour avec succès depuis l\'API FDJ !')
           "
 
       - name: Commit and push changes
@@ -82,4 +82,4 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add loto.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update loto.csv" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update loto.csv from FDJ API" && git push)
